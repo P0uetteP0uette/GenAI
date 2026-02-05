@@ -16,8 +16,12 @@
         </div>
 
         <div class="input-area">
+            <input type="file" id="imageInput" accept="image/*" style="display: none;">
+            
+            <button id="attachBtn" class="icon-btn" title="Ajouter une image">📎</button>
+            
             <input type="text" id="userInput" placeholder="Écrivez votre message..." autocomplete="off">
-            <button onclick="sendMessage()" id="sendBtn">Envoyer</button>
+            <button id="sendBtn">Envoyer</button>
         </div>
     </div>
 
