@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Java IA Chat</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="chat-container">
+        <div class="chat-header">🤖 Java Gemini Chat</div>
+        
+        <div class="chat-box" id="chatBox">
+            <div class="message ai-message">Bonjour ! Je suis Gemini 2.5. Pose-moi une question !</div>
+        </div>
+
+        <div class="input-area">
+            <input type="text" id="userInput" placeholder="Écrivez votre message..." autocomplete="off">
+            <button onclick="sendMessage()" id="sendBtn">Envoyer</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
