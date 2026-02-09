@@ -186,3 +186,38 @@ button:disabled { background-color: #555; cursor: wait; }
     font-family: 'Consolas', monospace;
     font-size: 0.9em;
 }
+
+/* --- BOUTON COPIER CODE --- */
+
+/* Le conteneur du code doit être relatif pour placer le bouton dedans */
+.ai-message pre {
+    position: relative; 
+    padding-top: 30px; /* On laisse de la place en haut pour le bouton */
+}
+
+.copy-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background-color: #45475a; /* Gris discret */
+    color: #cdd6f4;
+    border: 1px solid #585b70;
+    border-radius: 5px;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    opacity: 0.8;
+}
+
+.copy-btn:hover {
+    background-color: #585b70;
+    opacity: 1;
+}
+
+/* Petit effet vert quand on clique */
+.copy-btn.success {
+    background-color: #a6e3a1;
+    color: #1e1e2e;
+    border-color: #a6e3a1;
+}

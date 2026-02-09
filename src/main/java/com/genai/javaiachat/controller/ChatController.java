@@ -1,9 +1,10 @@
 package com.genai.javaiachat.controller;
 
-import org.springframework.web.bind.annotation.*; // Pour @PostMapping, @RestController, etc.
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import com.genai.javaiachat.service.ChatService;
 import java.io.IOException;
+import java.util.List; // Import List
 
 @RestController
 @RequestMapping("/api")
@@ -15,15 +16,16 @@ public class ChatController {
         this.chatService = chatService;
     }
 
-    // IMPERATIF : Cela doit être PostMapping, et pas GetMapping
-    @PostMapping("/chat") 
+    @PostMapping("/chat")
     public String chat(
             @RequestParam("question") String question,
-            @RequestParam(value = "file", required = false) MultipartFile file
+            // On change "file" (singulier) en "files" (pluriel) et List<MultipartFile>
+            @RequestParam(value = "files", required = false) List<MultipartFile> files
     ) throws IOException {
 
-        if (file != null && !file.isEmpty()) {
-            return chatService.generateResponseWithImage(question, file.getBytes());
+        // Si la liste existe et n'est pas vide
+        if (files != null && !files.isEmpty()) {
+            return chatService.generateResponseWithFiles(question, files);
         }
 
         return chatService.generateResponse(question);

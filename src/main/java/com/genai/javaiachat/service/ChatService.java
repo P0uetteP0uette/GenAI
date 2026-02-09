@@ -1,13 +1,17 @@
 package com.genai.javaiachat.service;
 
-import dev.langchain4j.data.message.ChatMessage; // Import important (Interface commune)
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.Content;
 import dev.langchain4j.data.message.ImageContent;
 import dev.langchain4j.data.message.TextContent;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.response.ChatResponse;
-import org.springframework.stereotype.Service;
 
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -43,19 +47,20 @@ public class ChatService {
     }
 
     // --- Méthode Texte + Image ---
-    public String generateResponseWithImage(String question, byte[] imageBytes) {
-        String base64Image = Base64.getEncoder().encodeToString(imageBytes);
+    public String generateResponseWithFiles(String question, List<MultipartFiles> files) throws IOException {
 
-        UserMessage userMsg = UserMessage.from(
-            TextContent.from(question),
-            ImageContent.from(base64Image, "image/png")
-        );
+        // Liste de contenus (texte + images)
+        List<Content> contents = new ArrayList<>();
 
-        addToHistory(userMsg);
-        ChatResponse response = chatModel.chat(conversationHistory);
-        addToHistory(response.aiMessage());
-
-        return response.aiMessage().text();
+        // Ajout du texte en 1er
+        contents.add(TextContent.from(question));
+        
+        // On boucle sur chaque fichier
+        for(MultipartFile file : files){
+            String base64Image = Base64.getEncoder().encodeToString(file.getBytes());
+            // Ajout de l'image à la liste de contenus
+            contents.add(ImageContent.from(base64Image, file.getOriginalFilename()));
+        }
     }
 
     // --- Petite méthode utilitaire pour gérer la mémoire (max 20 messages) ---
