@@ -3,24 +3,21 @@ document.addEventListener("DOMContentLoaded", function() {
     const chatBox = document.getElementById('chatBox');
     const userInput = document.getElementById('userInput');
     const sendBtn = document.getElementById('sendBtn');
-    
-    // Nouveaux éléments pour l'image
     const attachBtn = document.getElementById('attachBtn');
     const imageInput = document.getElementById('imageInput');
 
-    // 1. Gestion du clic sur le trombone
-    attachBtn.addEventListener('click', () => imageInput.click());
+    // Configuration de marked.js (pour éviter des bugs HTML)
+    // On dit juste de convertir les retours à la ligne en <br>
+    marked.setOptions({ breaks: true });
 
-    // 2. Quand une image est choisie, on change la couleur du trombone
+    // Gestion Trombone
+    attachBtn.addEventListener('click', () => imageInput.click());
     imageInput.addEventListener('change', () => {
-        if (imageInput.files.length > 0) {
-            attachBtn.classList.add('has-file'); // Devient vert
-        } else {
-            attachBtn.classList.remove('has-file');
-        }
+        if (imageInput.files.length > 0) attachBtn.classList.add('has-file');
+        else attachBtn.classList.remove('has-file');
     });
 
-    // Gestion Envoi
+    // Envoi
     sendBtn.addEventListener("click", sendMessage);
     userInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter") sendMessage();
@@ -30,57 +27,101 @@ document.addEventListener("DOMContentLoaded", function() {
         const text = userInput.value.trim();
         const file = imageInput.files[0];
 
-        // On empêche l'envoi si tout est vide
         if (!text && !file) return;
 
-        // Affichage du message utilisateur
-        let displayMsg = text;
-        if (file) displayMsg += ` 📷 [Image: ${file.name}]`; // Petit indicateur visuel
-        addMessage(displayMsg, 'user-message');
+        // --- 1. Affichage User (Image + Texte) ---
+        const userDiv = document.createElement('div');
+        userDiv.className = 'message user-message';
 
-        // Reset visuel immédiat
+        // A. Si image, on l'affiche en vrai
+        if (file) {
+            const imgPreview = document.createElement('img');
+            imgPreview.src = URL.createObjectURL(file); // Magie du navigateur
+            imgPreview.className = 'chat-image';
+            imgPreview.onload = () => URL.revokeObjectURL(imgPreview.src); // Nettoyage mémoire
+            userDiv.appendChild(imgPreview);
+        }
+
+        // B. Ajout du texte
+        if (text) {
+            const textSpan = document.createElement('span');
+            textSpan.innerText = text;
+            userDiv.appendChild(textSpan);
+        }
+
+        chatBox.appendChild(userDiv);
+        scrollToBottom();
+
+        // Reset champs
         userInput.value = '';
+        imageInput.value = ''; // Important: on vide l'input file pour ne pas renvoyer la même image après
+        attachBtn.classList.remove('has-file');
+
+        // --- 2. Animations d'Attente ---
+        
+        // A. Bouton qui saute
         sendBtn.disabled = true;
-        sendBtn.innerText = '...';
+        // On injecte les 3 spans pour l'animation CSS
+        sendBtn.innerHTML = '<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>';
+
+        // B. Message "L'IA réfléchit..." au milieu
+        const thinkingDiv = document.createElement('div');
+        thinkingDiv.className = 'thinking-message';
+        thinkingDiv.innerText = "✨ L'IA réfléchit...";
+        chatBox.appendChild(thinkingDiv);
+        scrollToBottom();
 
         try {
-            // --- C'est ICI que ça change (Mode POST + FormData) ---
+            // --- 3. Envoi au Backend ---
             const formData = new FormData();
             formData.append('question', text);
-            if (file) {
-                formData.append('file', file);
-            }
+            if (file) formData.append('file', file);
 
-            // Appel API en POST (plus sécurisé et gère les fichiers)
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 body: formData
             });
-            
-            if (!response.ok) throw new Error("Erreur serveur : " + response.status);
-            
-            const aiResponse = await response.text();
-            addMessage(aiResponse, 'ai-message');
 
-            // On nettoie l'image après l'envoi réussi
-            imageInput.value = ''; 
-            attachBtn.classList.remove('has-file');
+            if (!response.ok) throw new Error("Erreur serveur");
+            
+            const rawMarkdown = await response.text();
+
+            // --- 4. Traitement de la Réponse ---
+            
+            // A. On retire le message "Réfléchit"
+            thinkingDiv.remove();
+
+            // B. On convertit le Markdown en HTML (Gras, Code...)
+            const htmlContent = marked.parse(rawMarkdown);
+
+            // C. On affiche le résultat propre
+            const aiDiv = document.createElement('div');
+            aiDiv.className = 'message ai-message';
+            aiDiv.innerHTML = htmlContent; // On injecte le HTML généré
+            chatBox.appendChild(aiDiv);
 
         } catch (error) {
-            console.error(error);
-            addMessage("❌ Erreur : " + error.message, 'ai-message');
+            thinkingDiv.remove(); // On retire le loading même en cas d'erreur
+            addMessage("❌ Oups : " + error.message, 'ai-message');
         } finally {
+            // Reset Bouton
             sendBtn.disabled = false;
             sendBtn.innerText = 'Envoyer';
             userInput.focus();
+            scrollToBottom();
         }
     }
 
-    function addMessage(text, className) {
+    // Petite fonction pour éviter de répéter le code
+    function addMessage(htmlContent, className) {
         const div = document.createElement('div');
         div.className = `message ${className}`;
-        div.innerText = text;
+        div.innerHTML = htmlContent;
         chatBox.appendChild(div);
+        scrollToBottom();
+    }
+
+    function scrollToBottom() {
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 });
