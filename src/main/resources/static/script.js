@@ -5,15 +5,16 @@ document.addEventListener("DOMContentLoaded", function() {
     const sendBtn = document.getElementById('sendBtn');
     const attachBtn = document.getElementById('attachBtn');
     const imageInput = document.getElementById('imageInput');
-    const inputArea = document.querySelector('.input-area'); // Zone visuelle
+    const inputArea = document.querySelector('.input-area');
+
+    // --- LE COFFRE-FORT (Pour stocker les images en sécurité) ---
+    // C'est lui qui garde les images, même si l'input est réinitialisé par la fenêtre
+    const fileStorage = new DataTransfer(); 
 
     marked.setOptions({ breaks: true });
 
     // --- 1. GESTION DU DRAG & DROP (SUR TOUTE LA PAGE) ---
-    
-    let dragCounter = 0; // Astuce pour éviter le clignotement
-
-    // On écoute sur 'document' (toute la page) et plus seulement 'inputArea'
+    let dragCounter = 0;
     const dragEvents = ['dragenter', 'dragover', 'dragleave', 'drop'];
     
     dragEvents.forEach(eventName => {
@@ -25,47 +26,63 @@ document.addEventListener("DOMContentLoaded", function() {
         e.stopPropagation();
     }
 
-    // Quand on ENTRE dans la fenêtre avec un fichier
     document.addEventListener('dragenter', (e) => {
         dragCounter++;
-        inputArea.classList.add('drag-active'); // On allume la zone du bas
+        inputArea.classList.add('drag-active');
     });
 
-    // Quand on QUITTE un élément (ou la fenêtre)
     document.addEventListener('dragleave', (e) => {
         dragCounter--;
         if (dragCounter === 0) {
-            inputArea.classList.remove('drag-active'); // On éteint si on sort vraiment
+            inputArea.classList.remove('drag-active');
         }
     });
 
-    // Quand on LÂCHE le fichier n'importe où
+    // LE DROP (La partie importante)
     document.addEventListener('drop', (e) => {
         dragCounter = 0;
         inputArea.classList.remove('drag-active');
 
         const dt = e.dataTransfer;
-        const files = dt.files;
+        const droppedFiles = dt.files;
 
-        if (files.length > 0) {
-            imageInput.files = files; // On donne les fichiers à l'input caché
-            handleFiles(); // On lance la prévisualisation
+        if (droppedFiles.length > 0) {
+            // On ajoute les fichiers droppés dans notre coffre-fort
+            for (let i = 0; i < droppedFiles.length; i++) {
+                fileStorage.items.add(droppedFiles[i]);
+            }
+            // On met à jour l'affichage
+            updateFileCount();
         }
     });
 
+    // --- 2. GESTION TROMBONE (CLIC) ---
+    attachBtn.addEventListener('click', () => {
+        // Astuce : on remet l'input à zéro avant d'ouvrir pour permettre de resélectionner le même fichier
+        imageInput.value = ''; 
+        imageInput.click();
+    });
 
-    // --- 2. GESTION TROMBONE CLASSIQUE ---
-    attachBtn.addEventListener('click', () => imageInput.click());
-    imageInput.addEventListener('change', handleFiles);
+    imageInput.addEventListener('change', () => {
+        // Quand l'utilisateur a choisi via l'explorateur
+        const selectedFiles = imageInput.files;
+        if (selectedFiles.length > 0) {
+            // On ajoute dans le coffre-fort
+            for (let i = 0; i < selectedFiles.length; i++) {
+                fileStorage.items.add(selectedFiles[i]);
+            }
+            updateFileCount();
+        }
+    });
 
-    // --- 3. FONCTION DE PRÉVISUALISATION ---
-    function handleFiles() {
-        const files = imageInput.files;
-        const count = files.length;
+    // --- 3. FONCTION D'AFFICHAGE (Basée sur le coffre-fort) ---
+    function updateFileCount() {
+        // On compte ce qu'il y a dans le coffre, pas dans l'input
+        const count = fileStorage.files.length;
 
         if (count > 0) {
             attachBtn.classList.add('has-file');
-            attachBtn.title = count + " image(s) sélectionnée(s)";
+            attachBtn.title = count + " image(s) prête(s) à l'envoi";
             sendBtn.innerText = `Envoyer (${count} img)`;
         } else {
             attachBtn.classList.remove('has-file');
@@ -82,15 +99,16 @@ document.addEventListener("DOMContentLoaded", function() {
 
     async function sendMessage() {
         const text = userInput.value.trim();
-        const files = imageInput.files;
+        // On récupère les fichiers depuis le coffre-fort !
+        const files = fileStorage.files; 
 
         if (!text && files.length === 0) return;
 
-        // Création bulle User
+        // UI : Message User
         const userDiv = document.createElement('div');
         userDiv.className = 'message user-message';
 
-        // Affichage Galerie
+        // UI : Galerie Images
         if (files.length > 0) {
             const galleryDiv = document.createElement('div');
             galleryDiv.className = 'image-gallery';
@@ -105,7 +123,7 @@ document.addEventListener("DOMContentLoaded", function() {
             userDiv.appendChild(galleryDiv);
         }
 
-        // Affichage Texte
+        // UI : Texte
         if (text) {
             const textSpan = document.createElement('span');
             textSpan.innerText = text;
@@ -115,14 +133,13 @@ document.addEventListener("DOMContentLoaded", function() {
         chatBox.appendChild(userDiv);
         scrollToBottom();
 
-        // Reset inputs
+        // Reset immédiat
         userInput.value = '';
         
-        // Loading UI
+        // UI : Loading
         const originalBtnText = sendBtn.innerText;
         sendBtn.disabled = true;
         sendBtn.innerHTML = '<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>';
-
         const thinkingDiv = document.createElement('div');
         thinkingDiv.className = 'thinking-message';
         thinkingDiv.innerText = "✨ L'IA réfléchit...";
@@ -132,15 +149,10 @@ document.addEventListener("DOMContentLoaded", function() {
         try {
             const formData = new FormData();
             
-            // On envoie le texte (même vide, pour éviter l'erreur Java)
-            if (text) {
-                formData.append('question', text);
-            } else {
-                // Astuce : Si pas de texte, on envoie un espace vide ou rien
-                // Ton code Java a le "if" de sécurité maintenant, donc ça ira
-                formData.append('question', ""); 
-            }
+            if (text) formData.append('question', text);
+            else formData.append('question', ""); 
             
+            // On ajoute les fichiers du coffre-fort au formulaire
             for (let i = 0; i < files.length; i++) {
                 formData.append('files', files[i]);
             }
@@ -158,10 +170,9 @@ document.addEventListener("DOMContentLoaded", function() {
             addCopyButtons(aiDiv);
             chatBox.appendChild(aiDiv);
 
-            // Nettoyage après succès
-            imageInput.value = ''; 
-            attachBtn.classList.remove('has-file');
-            sendBtn.innerText = 'Envoyer';
+            // NETTOYAGE COMPLET APRÈS ENVOI
+            fileStorage.items.clear(); // On vide le coffre
+            updateFileCount(); // On remet le bouton à zéro
 
         } catch (error) {
             thinkingDiv.remove();
@@ -175,6 +186,7 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
+    // ... (Garde tes fonctions addCopyButtons, addMessage, scrollToBottom comme avant) ...
     function addCopyButtons(container) {
         const preBlocks = container.querySelectorAll('pre');
         preBlocks.forEach(pre => {
