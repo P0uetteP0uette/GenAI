@@ -24,6 +24,20 @@ body {
     text-align: center;
     font-weight: bold;
     font-size: 1.2rem;
+    /* AJOUT POUR ALIGNER L'IMAGE ET LE TEXTE */
+    display: flex;
+    align-items: center;     /* Centre verticalement */
+    justify-content: center; /* Centre horizontalement */
+    gap: 10px;               /* Espace entre l'image et le texte */
+}
+
+.bot-logo {
+    width: 50px;        /* Taille fixe */
+    height: 50px;
+    border-radius: 50%; /* Rend l'image ronde */
+    object-fit: cover;  /* Évite de déformer l'image */
+    border: 2px solid #a6e3a1; /* Petit contour vert stylé */
+    box-shadow: 0 0 10px rgba(166, 227, 161, 0.3); /* Petit effet lumineux */
 }
 
 .chat-box {
@@ -238,4 +252,20 @@ button:disabled { background-color: #555; cursor: wait; }
 .chat-image:hover {
     transform: scale(1.05);
     border-color: #b4befe;
+}
+
+/* --- DRAG & DROP --- */
+
+/* Style par défaut de la zone de saisie */
+.input-area {
+    transition: all 0.3s ease;
+    border: 2px solid transparent; /* Prépare la bordure */
+}
+
+/* Style quand on survole avec un fichier */
+.input-area.drag-active {
+    background-color: #313244;
+    border-color: #a6e3a1; /* Bordure verte */
+    border-style: dashed;  /* Pointillés */
+    transform: scale(1.02); /* Petit effet de zoom */
 }
