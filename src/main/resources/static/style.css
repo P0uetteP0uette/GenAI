@@ -150,16 +150,6 @@ button:disabled { background-color: #555; cursor: wait; }
     100% { opacity: 0.5; }
 }
 
-/* Style de l'image dans le chat */
-.chat-image {
-    max-width: 100%;
-    max-height: 200px;
-    border-radius: 10px;
-    margin-bottom: 10px;
-    display: block;
-    border: 2px solid rgba(255,255,255,0.1);
-}
-
 /* Style du Markdown (Gras, Code, etc.) */
 .ai-message strong {
     color: #a6e3a1; /* Vert pour le gras */
@@ -220,4 +210,32 @@ button:disabled { background-color: #555; cursor: wait; }
     background-color: #a6e3a1;
     color: #1e1e2e;
     border-color: #a6e3a1;
+}
+
+/* --- GALERIE D'IMAGES --- */
+
+/* Le conteneur des images (pour qu'elles s'alignent bien) */
+.image-gallery {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+/* Le style de chaque image */
+.chat-image {
+    width: 100px;        /* Largeur fixe */
+    height: 100px;       /* Hauteur fixe */
+    object-fit: cover;   /* ✨ LA MAGIE : Coupe l'image au lieu de l'écraser */
+    border-radius: 8px;
+    border: 2px solid #585b70;
+    transition: transform 0.2s;
+    cursor: pointer;     /* Montre qu'on peut cliquer (pour le futur) */
+    background-color: #1e1e2e; /* Évite le fond noir moche si l'image charge mal */
+}
+
+/* Petit effet au survol */
+.chat-image:hover {
+    transform: scale(1.05);
+    border-color: #b4befe;
 }

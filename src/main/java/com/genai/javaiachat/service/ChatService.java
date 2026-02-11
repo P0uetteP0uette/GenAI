@@ -47,20 +47,39 @@ public class ChatService {
     }
 
     // --- Méthode Texte + Image ---
-    public String generateResponseWithFiles(String question, List<MultipartFiles> files) throws IOException {
+    public String generateResponseWithFiles(String question, List<MultipartFile> files) throws IOException {
 
         // Liste de contenus (texte + images)
         List<Content> contents = new ArrayList<>();
 
         // Ajout du texte en 1er
-        contents.add(TextContent.from(question));
+        if (question != null && !question.isEmpty()) {
+            contents.add(TextContent.from(question));
+        }
         
         // On boucle sur chaque fichier
         for(MultipartFile file : files){
             String base64Image = Base64.getEncoder().encodeToString(file.getBytes());
             // Ajout de l'image à la liste de contenus
-            contents.add(ImageContent.from(base64Image, file.getOriginalFilename()));
+            String mimeType = file.getContentType();
+            if (mimeType == null) mimeType = "image/png"; // Sécurité si jamais c'est vide
+            
+            contents.add(ImageContent.from(base64Image, mimeType));
         }
+
+        // Création du message utilisateur avec tous les contenus
+        UserMessage userMsg = UserMessage.from(contents);
+
+        // Ajout à l'historique
+        addToHistory(userMsg);
+
+        // Envoi à l'IA
+        ChatResponse response = chatModel.chat(conversationHistory);
+
+        // Ajout de la réponse de l'IA à l'historique
+        addToHistory(response.aiMessage());
+        
+        return response.aiMessage().text();
     }
 
     // --- Petite méthode utilitaire pour gérer la mémoire (max 20 messages) ---

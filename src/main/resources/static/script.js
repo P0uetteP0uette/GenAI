@@ -42,19 +42,13 @@ document.addEventListener("DOMContentLoaded", function() {
         // A. Afficher TOUTES les images (Galerie)
         if (files.length > 0) {
             const galleryDiv = document.createElement('div');
-            // Un peu de style à la volée pour aligner les images
-            galleryDiv.style.display = 'flex';
-            galleryDiv.style.gap = '5px';
-            galleryDiv.style.flexWrap = 'wrap';
-            galleryDiv.style.marginBottom = '10px';
+            galleryDiv.className = 'image-gallery';
 
             // Boucle sur les fichiers pour les afficher
             Array.from(files).forEach(file => {
                 const imgPreview = document.createElement('img');
                 imgPreview.src = URL.createObjectURL(file);
                 imgPreview.className = 'chat-image';
-                // On réduit un peu la taille si y'en a plusieurs
-                imgPreview.style.maxWidth = '150px'; 
                 imgPreview.onload = () => URL.revokeObjectURL(imgPreview.src);
                 galleryDiv.appendChild(imgPreview);
             });
