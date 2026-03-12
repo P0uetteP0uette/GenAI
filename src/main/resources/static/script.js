@@ -4,219 +4,257 @@ document.addEventListener("DOMContentLoaded", function() {
     const userInput = document.getElementById('userInput');
     const sendBtn = document.getElementById('sendBtn');
     const attachBtn = document.getElementById('attachBtn');
-    const imageInput = document.getElementById('imageInput');
+    const fileInput = document.getElementById('fileInput');
     const inputArea = document.querySelector('.input-area');
+    const convList = document.getElementById('convList');
+    const newChatBtn = document.getElementById('newChatBtn');
 
-    // --- LE COFFRE-FORT (Pour stocker les images en sécurité) ---
-    // C'est lui qui garde les images, même si l'input est réinitialisé par la fenêtre
-    const fileStorage = new DataTransfer(); 
+    let currentConversationId = null;
+    const fileStorage = new DataTransfer(); // Stocke les fichiers accumulés
 
     marked.setOptions({ breaks: true });
 
-    // --- 1. GESTION DU DRAG & DROP (SUR TOUTE LA PAGE) ---
-    let dragCounter = 0;
-    const dragEvents = ['dragenter', 'dragover', 'dragleave', 'drop'];
-    
-    dragEvents.forEach(eventName => {
-        document.addEventListener(eventName, preventDefaults, false);
-    });
+    // --- 1. INITIALISATION ---
+    init();
 
-    function preventDefaults(e) {
-        e.preventDefault();
-        e.stopPropagation();
+    async function init() {
+        const res = await fetch('/api/conversations');
+        const convs = await res.json();
+        
+        if (convs.length === 0) {
+            await createNewChat();
+        } else {
+            // Au chargement, on prend la plus récente (la dernière de la liste)
+            selectConversation(convs[convs.length - 1].id);
+        }
     }
 
-    document.addEventListener('dragenter', (e) => {
-        dragCounter++;
-        inputArea.classList.add('drag-active');
-    });
+    // --- 2. GESTION DES CONVERSATIONS (SIDEBAR) ---
 
-    document.addEventListener('dragleave', (e) => {
-        dragCounter--;
-        if (dragCounter === 0) {
-            inputArea.classList.remove('drag-active');
+    // --- CLIC SUR NOUVELLE DISCUSSION ---
+    function createNewChat() {
+        currentConversationId = null; // On "oublie" l'ID actuel
+        chatBox.innerHTML = '';      // On vide le chat
+        showWelcome();               // On affiche le titre stylé
+        
+        // On déselectionne les éléments de la sidebar
+        document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
+    }
+
+    async function selectConversation(id) {
+        currentConversationId = id;
+        refreshSidebar();
+        
+        const res = await fetch(`/api/conversations/${id}/messages`);
+        const messages = await res.json();
+        
+        chatBox.innerHTML = '';
+        
+        if (messages.length === 0) {
+            showWelcome(); // Si vide, on met le titre
+        } else {
+            messages.forEach(msg => {
+                addMessageToUI(msg.content, msg.sender === 'USER' ? 'user-message' : 'ai-message', msg.imageBase64);
+            });
         }
+        scrollToBottom();
+    }
+
+    newChatBtn.onclick = createNewChat;
+
+    // --- 3. GESTION DU DRAG & DROP & TROMBONE ---
+    // (On garde ta logique robuste du message précédent)
+    
+    let dragCounter = 0;
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(e => {
+        document.addEventListener(e, (evt) => { evt.preventDefault(); evt.stopPropagation(); });
     });
 
-    // LE DROP (La partie importante)
+    document.addEventListener('dragenter', () => { dragCounter++; inputArea.classList.add('drag-active'); });
+    document.addEventListener('dragleave', () => { dragCounter--; if (dragCounter === 0) inputArea.classList.remove('drag-active'); });
+
     document.addEventListener('drop', (e) => {
         dragCounter = 0;
         inputArea.classList.remove('drag-active');
-
         const dt = e.dataTransfer;
-        const droppedFiles = dt.files;
-
-        if (droppedFiles.length > 0) {
-            // On ajoute les fichiers droppés dans notre coffre-fort
-            for (let i = 0; i < droppedFiles.length; i++) {
-                fileStorage.items.add(droppedFiles[i]);
-            }
-            // On met à jour l'affichage
+        if (dt.files.length > 0) {
+            for (let f of dt.files) fileStorage.items.add(f);
             updateFileCount();
         }
     });
 
-    // --- 2. GESTION TROMBONE (CLIC) ---
-    attachBtn.addEventListener('click', () => {
-        // Astuce : on remet l'input à zéro avant d'ouvrir pour permettre de resélectionner le même fichier
-        imageInput.value = ''; 
-        imageInput.click();
-    });
-
-    imageInput.addEventListener('change', () => {
-        // Quand l'utilisateur a choisi via l'explorateur
-        const selectedFiles = imageInput.files;
-        if (selectedFiles.length > 0) {
-            // On ajoute dans le coffre-fort
-            for (let i = 0; i < selectedFiles.length; i++) {
-                fileStorage.items.add(selectedFiles[i]);
-            }
+    attachBtn.onclick = () => { fileInput.value = ''; fileInput.click(); };
+    fileInput.onchange = () => {
+        if (fileInput.files.length > 0) {
+            for (let f of fileInput.files) fileStorage.items.add(f);
             updateFileCount();
         }
-    });
+    };
 
-    // --- 3. FONCTION D'AFFICHAGE (Basée sur le coffre-fort) ---
     function updateFileCount() {
-        // On compte ce qu'il y a dans le coffre, pas dans l'input
         const count = fileStorage.files.length;
-
-        if (count > 0) {
-            attachBtn.classList.add('has-file');
-            attachBtn.title = count + " image(s) prête(s) à l'envoi";
-            sendBtn.innerText = `Envoyer (${count} img)`;
-        } else {
-            attachBtn.classList.remove('has-file');
-            attachBtn.title = "Ajouter une image";
-            sendBtn.innerText = 'Envoyer';
-        }
+        attachBtn.classList.toggle('has-file', count > 0);
+        sendBtn.innerText = count > 0 ? `Envoyer (${count} doc)` : 'Envoyer';
     }
 
     // --- 4. ENVOI DU MESSAGE ---
-    sendBtn.addEventListener("click", sendMessage);
-    userInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") sendMessage();
-    });
 
+    sendBtn.onclick = sendMessage;
+    userInput.onkeydown = (e) => { if (e.key === "Enter") sendMessage(); };
+
+    // --- FONCTION POUR RAFRAÎCHIR LA BARRE LATÉRALE ---
+    async function refreshSidebar() {
+        try {
+            const res = await fetch('/api/conversations');
+            const convs = await res.json();
+            
+            const convList = document.getElementById('convList');
+            convList.innerHTML = ''; // On vide la liste actuelle
+            
+            convs.forEach(conv => {
+                const item = document.createElement('div');
+                item.className = `conv-item ${conv.id === currentConversationId ? 'active' : ''}`;
+                
+                // 1. On crée un span pour le titre
+                const titleSpan = document.createElement('span');
+                titleSpan.className = 'conv-title';
+                titleSpan.innerText = conv.title || "Nouvelle discussion";
+                titleSpan.onclick = () => selectConversation(conv.id);
+                
+                // 2. On crée le bouton poubelle
+                const delBtn = document.createElement('button');
+                delBtn.className = 'delete-btn';
+                delBtn.innerHTML = '🗑️'; 
+                delBtn.onclick = (e) => {
+                    e.stopPropagation(); // Empêche de sélectionner la conv
+                    confirmDelete(conv.id);
+                };
+
+                // 3. On ajoute le titre et la poubelle dans l'item
+                item.appendChild(titleSpan);
+                item.appendChild(delBtn);
+                
+                // 4. On ajoute l'item à la liste
+                convList.appendChild(item);
+            });
+        } catch (error) {
+            console.error("Erreur lors du rafraîchissement de la sidebar:", error);
+        }
+    }
+
+    // --- ENVOI DE MESSAGE ---
     async function sendMessage() {
         const text = userInput.value.trim();
-        // On récupère les fichiers depuis le coffre-fort !
-        const files = fileStorage.files; 
+        const files = fileStorage.files;
 
         if (!text && files.length === 0) return;
 
-        // UI : Message User
-        const userDiv = document.createElement('div');
-        userDiv.className = 'message user-message';
-
-        // UI : Galerie Images
-        if (files.length > 0) {
-            const galleryDiv = document.createElement('div');
-            galleryDiv.className = 'image-gallery';
-
-            Array.from(files).forEach(file => {
-                const imgPreview = document.createElement('img');
-                imgPreview.src = URL.createObjectURL(file);
-                imgPreview.className = 'chat-image';
-                imgPreview.onload = () => URL.revokeObjectURL(imgPreview.src);
-                galleryDiv.appendChild(imgPreview);
-            });
-            userDiv.appendChild(galleryDiv);
+        // 1. SI C'EST UNE NOUVELLE CONV (ID est nul)
+        if (currentConversationId === null) {
+            const res = await fetch('/api/conversations', { method: 'POST' });
+            const newConv = await res.json();
+            currentConversationId = newConv.id;
+            chatBox.innerHTML = '';
         }
 
-        // UI : Texte
-        if (text) {
-            const textSpan = document.createElement('span');
-            textSpan.innerText = text;
-            userDiv.appendChild(textSpan);
+        // 2. AFFICHAGE DU MESSAGE UTILISATEUR
+        // Petite astuce : si on n'a mis que des fichiers sans texte, on affiche "[Pièce jointe]" dans la bulle
+        const displayMessage = text || "📎 [Pièce jointe]";
+        addMessageToUI(displayMessage, 'user-message');
+
+        // 3. PRÉPARATION DES DONNÉES (On copie les fichiers avant de les supprimer de l'UI)
+        const formData = new FormData();
+        formData.append('question', text || "");
+        for (let i = 0; i < files.length; i++) {
+            formData.append('files', files[i]);
         }
 
-        chatBox.appendChild(userDiv);
-        scrollToBottom();
-
-        // Reset immédiat
+        // 4. ✨ LA MAGIE UX : RESET IMMÉDIAT DE L'INTERFACE ✨
         userInput.value = '';
-        
-        // UI : Loading
-        const originalBtnText = sendBtn.innerText;
-        sendBtn.disabled = true;
-        sendBtn.innerHTML = '<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>';
-        const thinkingDiv = document.createElement('div');
-        thinkingDiv.className = 'thinking-message';
-        thinkingDiv.innerText = "✨ L'IA réfléchit...";
-        chatBox.appendChild(thinkingDiv);
-        scrollToBottom();
+        fileStorage.items.clear();              // On vide la mémoire des fichiers
+        attachBtn.classList.remove('has-file'); // Le trombone redevient normal (gris)
+        sendBtn.innerText = '...';              // Le bouton affiche "..."
+        sendBtn.disabled = true;                // On bloque le bouton pour éviter les clics multiples
+        userInput.disabled = true;              // On grise la zone de texte
 
         try {
-            const formData = new FormData();
+            // 5. ENVOI AU SERVEUR (On attend la réponse ici)
+            const response = await fetch(`/api/chat/${currentConversationId}`, { 
+                method: 'POST', 
+                body: formData 
+            });
+            const aiResponse = await response.text();
             
-            if (text) formData.append('question', text);
-            else formData.append('question', ""); 
+            // 6. AFFICHAGE RÉPONSE IA
+            addMessageToUI(aiResponse, 'ai-message');
+            refreshSidebar();
             
-            // On ajoute les fichiers du coffre-fort au formulaire
-            for (let i = 0; i < files.length; i++) {
-                formData.append('files', files[i]);
-            }
-
-            const response = await fetch('/api/chat', { method: 'POST', body: formData });
-            if (!response.ok) throw new Error("Erreur serveur");
-            
-            const rawMarkdown = await response.text();
-
-            thinkingDiv.remove();
-            const htmlContent = marked.parse(rawMarkdown);
-            const aiDiv = document.createElement('div');
-            aiDiv.className = 'message ai-message';
-            aiDiv.innerHTML = htmlContent;
-            addCopyButtons(aiDiv);
-            chatBox.appendChild(aiDiv);
-
-            // NETTOYAGE COMPLET APRÈS ENVOI
-            fileStorage.items.clear(); // On vide le coffre
-            updateFileCount(); // On remet le bouton à zéro
-
-        } catch (error) {
-            thinkingDiv.remove();
-            addMessage("❌ Oups : " + error.message, 'ai-message');
-            sendBtn.innerText = originalBtnText;
+        } catch (e) {
+            console.error(e);
+            addMessageToUI("Désolé, une erreur de connexion est survenue.", 'ai-message');
         } finally {
+            // 7. RESTAURATION DE L'INTERFACE (Quoi qu'il arrive, succès ou erreur)
+            sendBtn.innerText = 'Envoyer';
             sendBtn.disabled = false;
-            if(sendBtn.innerText === '...') sendBtn.innerText = 'Envoyer';
-            userInput.focus();
-            scrollToBottom();
+            userInput.disabled = false;
+            userInput.focus(); // On remet le curseur prêt à taper
+            updateFileCount(); // Sécurité pour s'assurer que tout est bien synchronisé
         }
     }
 
-    // ... (Garde tes fonctions addCopyButtons, addMessage, scrollToBottom comme avant) ...
-    function addCopyButtons(container) {
-        const preBlocks = container.querySelectorAll('pre');
-        preBlocks.forEach(pre => {
-            const button = document.createElement('button');
-            button.className = 'copy-btn';
-            button.innerText = 'Copier';
-            button.addEventListener('click', () => {
-                const code = pre.querySelector('code').innerText;
-                navigator.clipboard.writeText(code).then(() => {
-                    button.innerText = 'Copié !';
-                    button.classList.add('success');
-                    setTimeout(() => {
-                        button.innerText = 'Copier';
-                        button.classList.remove('success');
-                    }, 2000);
-                });
-            });
-            pre.appendChild(button);
-        });
-    }
-
-    function addMessage(htmlContent, className) {
+    function addMessageToUI(content, className, imageBase64 = null) {
         const div = document.createElement('div');
         div.className = `message ${className}`;
-        div.innerHTML = htmlContent;
+        
+        if (imageBase64) {
+            const img = document.createElement('img');
+            // Gère si c'est une URL temporaire (blob) ou du Base64 BDD
+            img.src = imageBase64.startsWith('blob:') ? imageBase64 : `data:image/png;base64,${imageBase64}`;
+            img.className = 'chat-image';
+            div.appendChild(img);
+        }
+
+        if (content) {
+            const span = document.createElement('span');
+            span.innerHTML = className === 'ai-message' ? marked.parse(content) : content;
+            div.appendChild(span);
+        }
+
         chatBox.appendChild(div);
         scrollToBottom();
     }
 
-    function scrollToBottom() {
-        chatBox.scrollTop = chatBox.scrollHeight;
+    function scrollToBottom() { chatBox.scrollTop = chatBox.scrollHeight; }
+
+    // --- FONCTION POUR L'ACCUEIL ---
+    function showWelcome() {
+        chatBox.innerHTML = `
+            <div class="welcome-header" id="welcomeMsg">
+                <div class="bot-icon">✨</div>
+                <h2>Comment puis-je t'aider aujourd'hui ?</h2>
+                <p>Pose-moi une question ou importe une image pour commencer.</p>
+            </div>
+        `;
+    }
+
+    // --- LOGIQUE DE SUPPRESSION AVEC POP-UP ---
+    async function confirmDelete(id) {
+        const confirmation = confirm("Es-tu sûr de vouloir supprimer cette discussion ?");
+        
+        if (confirmation) {
+            try {
+                const res = await fetch(`/api/conversations/${id}`, { method: 'DELETE' });
+                
+                if (res.ok) {
+                    // Si on a supprimé la conv sur laquelle on était
+                    if (currentConversationId === id) {
+                        createNewChat(); // On reset l'écran
+                    }
+                    refreshSidebar(); // On met à jour la liste
+                }
+            } catch (e) {
+                console.error("Erreur suppression:", e);
+            }
+        }
     }
 });

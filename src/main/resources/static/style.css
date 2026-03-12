@@ -1,3 +1,10 @@
+:root {
+    --sidebar-bg: #0d0d0e;
+    --item-hover: #202123;
+    --accent-color: #10a37f; /* Vert ChatGPT */
+    --text-gray: #ececf1;
+}
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: #1e1e2e;
@@ -268,4 +275,184 @@ button:disabled { background-color: #555; cursor: wait; }
     border-color: #a6e3a1; /* Bordure verte */
     border-style: dashed;  /* Pointillés */
     transform: scale(1.02); /* Petit effet de zoom */
+}
+
+/* --- SECTION SIDEBAR UNIQUEMENT --- */
+
+.sidebar {
+    width: 260px;
+    background-color: var(--sidebar-bg);
+    display: flex;
+    flex-direction: column;
+    padding: 10px; /* Espace interne pour que les items ne touchent pas les bords */
+}
+
+.sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid #313244;
+}
+
+.new-chat-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center; /* Centre le texte parfaitement */
+    gap: 8px;
+    width: 100%;
+    padding: 12px;
+    background-color: #a6e3a1; /* Le beau vert de retour ! */
+    color: #1e1e2e; /* Texte foncé pour bien lire */
+    border: none; /* Plus de bordure grise moche */
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 5px;
+    margin-bottom: 5px; /* 👈 Un espace beaucoup plus petit (10px au lieu de 20px) */
+    font-size: 1rem;
+    font-weight: bold;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Petite ombre légère */
+}
+
+/* Effet quand on passe la souris */
+.new-chat-btn:hover {
+    background-color: #8fe089; /* Un vert un peu plus intense */
+    transform: translateY(-2px); /* Le bouton se soulève légèrement */
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Effet quand on clique */
+.new-chat-btn:active {
+    transform: scale(0.96); /* Le bouton s'enfonce */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.conv-list {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 10px;
+    /* Scrollbar discrète */
+    scrollbar-width: thin;
+    scrollbar-color: #313244 transparent;
+}
+
+/* Style des items de conversation */
+.conv-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Titre à gauche, poubelle à droite */
+    padding: 10px 12px;
+    margin-bottom: 5px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.conv-title {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-right: 10px;
+    min-width: 0;
+}
+
+/* Petit icône de bulle avant le texte (optionnel via CSS) */
+.conv-item::before {
+    content: "💬";
+    margin-right: 10px;
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.conv-item:hover {
+    background-color: var(--item-hover);
+}
+
+.conv-item.active {
+    background-color: #343541;
+    color: white;
+}
+
+/* Custom scrollbar pour Chrome/Edge */
+.conv-list::-webkit-scrollbar {
+    width: 4px;
+}
+.conv-list::-webkit-scrollbar-thumb {
+    background: #313244;
+    border-radius: 10px;
+}
+
+#userInput {
+    background: #40414f;
+    border: 1px solid rgba(32,33,35,.5);
+    box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    padding: 14px;
+    border-radius: 12px;
+    color: white;
+}
+
+.welcome-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+    color: #ececf1;
+    animation: fadeIn 0.5s ease-out;
+}
+
+.bot-icon {
+    font-size: 50px;
+    margin-bottom: 20px;
+    background: #343541;
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid #4d4d4f;
+}
+
+.welcome-header h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.welcome-header p {
+    color: #9ca3af;
+    font-size: 0.9rem;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- BOUTON DELETE DISCUSSION --- */
+
+/* 3. La poubelle cachée par défaut */
+.delete-btn {
+    opacity: 0; /* Cachée */
+    background: transparent;
+    border: none;
+    color: #ff6b6b;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+/* 4. LA MAGIE : Quand on survole l'item, la poubelle apparaît */
+.conv-item:hover .delete-btn {
+    opacity: 1;
+}
+
+/* 5. Petit effet bonus quand on survole la poubelle elle-même */
+.delete-btn:hover {
+    background-color: rgba(255, 107, 107, 0.2);
+    transform: scale(1.1);
 }

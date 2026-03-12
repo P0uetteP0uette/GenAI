@@ -10,6 +10,11 @@
 </head>
 <body>
 
+    <div class="sidebar">
+        <button id="newChatBtn" class="new-chat-btn">+ Nouvelle Discussion</button>
+        <div id="convList" class="conv-list"></div>
+    </div>
+
     <div class="chat-container">
         <div class="chat-header">
             <img src="logo.png" alt="Logo" class="bot-logo">
@@ -21,7 +26,7 @@
         </div>
 
         <div class="input-area">
-            <input type="file" id="imageInput" accept="image/*" multiple style="display: none;">
+            <input type="file" id="fileInput" accept="image/*, .pdf, .txt, .csv, .doc, .docx" multiple style="display: none;">
             
             <button id="attachBtn" class="icon-btn" title="Ajouter une image">📎</button>
             
