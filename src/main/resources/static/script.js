@@ -80,6 +80,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if (dt.files.length > 0) {
             for (let f of dt.files) fileStorage.items.add(f);
             updateFileCount();
+            renderFilePreviews();
         }
     });
 
@@ -88,6 +89,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if (fileInput.files.length > 0) {
             for (let f of fileInput.files) fileStorage.items.add(f);
             updateFileCount();
+            renderFilePreviews();
         }
     };
 
@@ -145,11 +147,10 @@ document.addEventListener("DOMContentLoaded", function() {
     // --- ENVOI DE MESSAGE ---
     async function sendMessage() {
         const text = userInput.value.trim();
-        const files = fileStorage.files;
+        const filesArray = Array.from(fileStorage.files); // On copie les fichiers dans un tableau
 
-        if (!text && files.length === 0) return;
+        if (!text && filesArray.length === 0) return;
 
-        // 1. SI C'EST UNE NOUVELLE CONV (ID est nul)
         if (currentConversationId === null) {
             const res = await fetch('/api/conversations', { method: 'POST' });
             const newConv = await res.json();
@@ -157,35 +158,31 @@ document.addEventListener("DOMContentLoaded", function() {
             chatBox.innerHTML = '';
         }
 
-        // 2. AFFICHAGE DU MESSAGE UTILISATEUR
-        // Petite astuce : si on n'a mis que des fichiers sans texte, on affiche "[Pièce jointe]" dans la bulle
-        const displayMessage = text || "📎 [Pièce jointe]";
-        addMessageToUI(displayMessage, 'user-message');
+        // ✨ MODIFICATION ICI : On passe les fichiers à la fonction d'affichage
+        addMessageToUI(text, 'user-message', null, filesArray);
 
-        // 3. PRÉPARATION DES DONNÉES (On copie les fichiers avant de les supprimer de l'UI)
         const formData = new FormData();
         formData.append('question', text || "");
-        for (let i = 0; i < files.length; i++) {
-            formData.append('files', files[i]);
+        for (let i = 0; i < filesArray.length; i++) {
+            formData.append('files', filesArray[i]);
         }
 
-        // 4. ✨ LA MAGIE UX : RESET IMMÉDIAT DE L'INTERFACE ✨
+        // Reset immédiat de l'interface
         userInput.value = '';
-        fileStorage.items.clear();              // On vide la mémoire des fichiers
-        attachBtn.classList.remove('has-file'); // Le trombone redevient normal (gris)
-        sendBtn.innerText = '...';              // Le bouton affiche "..."
-        sendBtn.disabled = true;                // On bloque le bouton pour éviter les clics multiples
-        userInput.disabled = true;              // On grise la zone de texte
+        fileStorage.items.clear();              
+        attachBtn.classList.remove('has-file'); 
+        sendBtn.innerText = '...';              
+        sendBtn.disabled = true;                
+        userInput.disabled = true;              
+        renderFilePreviews(); // Cache la prévisualisation au-dessus de la barre
 
         try {
-            // 5. ENVOI AU SERVEUR (On attend la réponse ici)
             const response = await fetch(`/api/chat/${currentConversationId}`, { 
                 method: 'POST', 
                 body: formData 
             });
             const aiResponse = await response.text();
             
-            // 6. AFFICHAGE RÉPONSE IA
             addMessageToUI(aiResponse, 'ai-message');
             refreshSidebar();
             
@@ -193,27 +190,62 @@ document.addEventListener("DOMContentLoaded", function() {
             console.error(e);
             addMessageToUI("Désolé, une erreur de connexion est survenue.", 'ai-message');
         } finally {
-            // 7. RESTAURATION DE L'INTERFACE (Quoi qu'il arrive, succès ou erreur)
             sendBtn.innerText = 'Envoyer';
             sendBtn.disabled = false;
             userInput.disabled = false;
-            userInput.focus(); // On remet le curseur prêt à taper
-            updateFileCount(); // Sécurité pour s'assurer que tout est bien synchronisé
+            userInput.focus();
+            updateFileCount();
         }
     }
 
-    function addMessageToUI(content, className, imageBase64 = null) {
+    // --- AFFICHAGE DES MESSAGES DANS LE CHAT ---
+    // ✨ MODIFICATION ICI : Ajout du paramètre "files"
+    function addMessageToUI(content, className, imageBase64 = null, files = []) {
         const div = document.createElement('div');
         div.className = `message ${className}`;
         
+        // 1. Si on charge l'historique et qu'il y a une image en Base64 dans la BDD
         if (imageBase64) {
+            const imgGallery = document.createElement('div');
+            imgGallery.className = 'image-gallery';
             const img = document.createElement('img');
-            // Gère si c'est une URL temporaire (blob) ou du Base64 BDD
             img.src = imageBase64.startsWith('blob:') ? imageBase64 : `data:image/png;base64,${imageBase64}`;
             img.className = 'chat-image';
-            div.appendChild(img);
+            imgGallery.appendChild(img);
+            div.appendChild(imgGallery);
         }
 
+        // 2. Si on vient d'envoyer des fichiers en direct
+        if (files && files.length > 0) {
+            // On crée DEUX conteneurs séparés
+            const imgGallery = document.createElement('div');
+            imgGallery.className = 'image-gallery'; 
+            
+            const fileGallery = document.createElement('div');
+            fileGallery.className = 'attachment-gallery';
+
+            files.forEach(file => {
+                if (file.type.startsWith('image/')) {
+                    // Les images vont dans la galerie d'images
+                    const img = document.createElement('img');
+                    img.className = 'chat-image';
+                    img.src = URL.createObjectURL(file);
+                    imgGallery.appendChild(img);
+                } else {
+                    // Les documents vont dans la galerie de fichiers
+                    const fileDiv = document.createElement('div');
+                    fileDiv.className = 'chat-file-attachment';
+                    fileDiv.innerHTML = `<span class="chat-file-icon">📄</span> ${file.name}`;
+                    fileGallery.appendChild(fileDiv);
+                }
+            });
+
+            // On ajoute les galeries à la bulle de chat seulement si elles ne sont pas vides
+            if (imgGallery.children.length > 0) div.appendChild(imgGallery);
+            if (fileGallery.children.length > 0) div.appendChild(fileGallery);
+        }
+
+        // 3. On ajoute le texte en dessous (s'il y en a un)
         if (content) {
             const span = document.createElement('span');
             span.innerHTML = className === 'ai-message' ? marked.parse(content) : content;
@@ -256,5 +288,58 @@ document.addEventListener("DOMContentLoaded", function() {
                 console.error("Erreur suppression:", e);
             }
         }
+    }
+
+    // --- FONCTION D'AFFICHAGE DES PIÈCES JOINTES ---
+    function renderFilePreviews() {
+        const previewContainer = document.getElementById('filePreviewContainer');
+        previewContainer.innerHTML = ''; // On vide pour tout redessiner
+        
+        const files = fileStorage.files;
+        
+        // Si aucun fichier, on cache la zone
+        if (files.length === 0) {
+            previewContainer.style.display = 'none';
+            return;
+        }
+        
+        // Sinon on l'affiche
+        previewContainer.style.display = 'flex';
+        
+        // On crée une miniature pour chaque fichier
+        Array.from(files).forEach((file, index) => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'preview-item';
+            
+            if (file.type.startsWith('image/')) {
+                // Si c'est une image, on affiche la photo
+                const img = document.createElement('img');
+                img.className = 'preview-img';
+                img.src = URL.createObjectURL(file);
+                itemDiv.appendChild(img);
+            } else {
+                // Si c'est un doc/pdf, on affiche une icône et le nom
+                const fileDiv = document.createElement('div');
+                fileDiv.className = 'preview-file';
+                fileDiv.innerHTML = `
+                    <div class="preview-file-icon">📄</div>
+                    <div class="preview-file-name" title="${file.name}">${file.name}</div>
+                `;
+                itemDiv.appendChild(fileDiv);
+            }
+            
+            // La croix rouge pour supprimer CE fichier précis
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'remove-btn';
+            removeBtn.innerHTML = '×';
+            removeBtn.onclick = () => {
+                fileStorage.items.remove(index); // On le retire du stockage
+                updateFileCount();               // On met à jour le bouton "Envoyer"
+                renderFilePreviews();            // On redessine les miniatures
+            };
+            
+            itemDiv.appendChild(removeBtn);
+            previewContainer.appendChild(itemDiv);
+        });
     }
 });
