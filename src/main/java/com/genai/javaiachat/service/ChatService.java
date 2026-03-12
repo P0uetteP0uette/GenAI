@@ -59,29 +59,39 @@ public class ChatService {
             contents.add(TextContent.from(userText));
         }
 
+        List<String> fileNames = new ArrayList<>();
+
         // --- 1. GESTION DES FICHIERS (SANS FAIRE CRASHER GEMINI) ---
         if (files != null && !files.isEmpty()) {
             for (MultipartFile file : files) {
                 String mimeType = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
+                String fileName = file.getOriginalFilename();
 
                 if (mimeType.startsWith("image/")) {
                     // Les images passent très bien
                     String base64 = Base64.getEncoder().encodeToString(file.getBytes());
                     contents.add(ImageContent.from(base64, mimeType));
                     if (userDbMsg.getImageBase64() == null) userDbMsg.setImageBase64(base64);
-                } 
-                else if (mimeType.startsWith("text/") || mimeType.endsWith("json") || mimeType.endsWith("csv") || mimeType.endsWith("javascript")) {
-                    // Les fichiers textes, CSV, codes : on lit le texte et on l'injecte direct !
-                    String fileContent = new String(file.getBytes(), StandardCharsets.UTF_8);
-                    contents.add(TextContent.from("\n[Contenu du fichier " + file.getOriginalFilename() + "] :\n" + fileContent));
                 }
                 else {
-                    // Les PDF / Word : On prévient l'IA qu'un fichier est là, sans faire crasher l'API
-                    contents.add(TextContent.from("\n[L'utilisateur a joint un fichier non lisible nativement : " + file.getOriginalFilename() + "]"));
+                    // C'est un document (PDF, TXT, etc.)
+                    fileNames.add(fileName); // 👈 On sauvegarde le nom du fichier !
+
+                    if (mimeType.startsWith("text/") || mimeType.endsWith("json") || mimeType.endsWith("csv") || mimeType.endsWith("javascript")) {
+                        String fileContent = new String(file.getBytes(), StandardCharsets.UTF_8);
+                        contents.add(TextContent.from("\n[Contenu du fichier " + fileName + "] :\n" + fileContent));
+                    } else {
+                        contents.add(TextContent.from("\n[L'utilisateur a joint un fichier non lisible nativement : " + fileName + "]"));
+                    }
                 }
             }
         }
         
+        // ✨ NOUVEAU : On enregistre les noms dans le message, séparés par une virgule
+        if (!fileNames.isEmpty()) {
+            userDbMsg.setAttachedFiles(String.join(",", fileNames));
+        }
+
         messageRepo.save(userDbMsg);
 
         // --- 2. RECONSTITUTION DE L'HISTORIQUE ---

@@ -54,7 +54,7 @@ document.addEventListener("DOMContentLoaded", function() {
             showWelcome(); // Si vide, on met le titre
         } else {
             messages.forEach(msg => {
-                addMessageToUI(msg.content, msg.sender === 'USER' ? 'user-message' : 'ai-message', msg.imageBase64);
+                addMessageToUI(msg.content, msg.sender === 'USER' ? 'user-message' : 'ai-message', msg.imageBase64, [], msg.attachedFiles);
             });
         }
         scrollToBottom();
@@ -200,7 +200,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // --- AFFICHAGE DES MESSAGES DANS LE CHAT ---
     // ✨ MODIFICATION ICI : Ajout du paramètre "files"
-    function addMessageToUI(content, className, imageBase64 = null, files = []) {
+    function addMessageToUI(content, className, imageBase64 = null, files = [], savedFileNames = null) {
         const div = document.createElement('div');
         div.className = `message ${className}`;
         
@@ -243,6 +243,24 @@ document.addEventListener("DOMContentLoaded", function() {
             // On ajoute les galeries à la bulle de chat seulement si elles ne sont pas vides
             if (imgGallery.children.length > 0) div.appendChild(imgGallery);
             if (fileGallery.children.length > 0) div.appendChild(fileGallery);
+        }
+
+        // ✨ NOUVEAU : 2.5 L'affichage quand on recharge l'historique depuis la BDD !
+        if (savedFileNames) {
+            const fileGallery = document.createElement('div');
+            fileGallery.className = 'attachment-gallery';
+            
+            // On découpe les noms (séparés par des virgules) et on crée les boîtes
+            const namesArray = savedFileNames.split(',');
+            namesArray.forEach(name => {
+                if (name.trim()) {
+                    const fileDiv = document.createElement('div');
+                    fileDiv.className = 'chat-file-attachment';
+                    fileDiv.innerHTML = `<span class="chat-file-icon">📄</span> ${name.trim()}`;
+                    fileGallery.appendChild(fileDiv);
+                }
+            });
+            div.appendChild(fileGallery);
         }
 
         // 3. On ajoute le texte en dessous (s'il y en a un)

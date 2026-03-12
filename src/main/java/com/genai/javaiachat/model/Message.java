@@ -16,6 +16,9 @@ public class Message {
 
     private String sender; // "user" ou "ia"
 
+    @Column(length = 1000)
+    private String attachedFiles;
+
     @Lob
     @Column(columnDefinition = "CLOB")
     private String imageBase64;
@@ -38,4 +41,6 @@ public class Message {
     public String getSender() { return sender; }
     public String getImageBase64() { return imageBase64; }
     public void setImageBase64(String imageBase64) { this.imageBase64 = imageBase64; }
+    public String getAttachedFiles() { return attachedFiles; }
+    public void setAttachedFiles(String attachedFiles) { this.attachedFiles = attachedFiles; }
 }
